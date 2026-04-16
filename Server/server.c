@@ -13,6 +13,25 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
+#include <fcntl.h>
+
+/** Returns true on success, or false if there was an error */
+bool SetSocketBlockingEnabled(int fd, bool blocking)
+{
+    if (fd < 0) return false;
+
+#ifdef _WIN32
+    unsigned long mode = blocking ? 0 : 1;
+    return (ioctlsocket(fd, FIONBIO, &mode) == 0);
+#else
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags == -1) return false;
+    flags = blocking ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
+    return (fcntl(fd, F_SETFL, flags) == 0);
+#endif
+}
+
 
 int main(int argc, char** argv)
 {
@@ -100,6 +119,8 @@ int main(int argc, char** argv)
 #endif
         return 1;
     }
+
+    SetSocketBlockingEnabled(s_id, false);
 
     // бесконечный цикл. По-хорошему он должен прерываться сигналом из вне
     while (1)
