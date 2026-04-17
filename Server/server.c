@@ -120,8 +120,6 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    SetSocketBlockingEnabled(s_id, false);
-
     // бесконечный цикл. По-хорошему он должен прерываться сигналом из вне
     while (1)
     {
@@ -135,55 +133,63 @@ int main(int argc, char** argv)
         {
             // TODO обработать ошибку
         }
+        else {
+            /* ************************************ */
+            //   работаем с клиентом
+            // cl_s_id -- идентификатор сокета для работы с конкретным клиентом
 
-        /* ************************************ */
-        //   работаем с клиентом
-        // cl_s_id -- идентификатор сокета для работы с конкретным клиентом
+            // преобразуем адрес клиента в строковое представление
+            cl_addr_str[0] = 0;
+            tmp = (char*)inet_ntop(AF_INET, &client_addr.sin_addr, cl_addr_str, INET_ADDRSTRLEN + 1);
+            // занулим адресную инфу клиента (она нам больше не нужна)
+            memset(&client_addr, 0, sizeof(struct sockaddr_in));
 
-        // преобразуем адрес клиента в строковое представление
-        cl_addr_str[0] = 0;
-        tmp = (char*)inet_ntop(AF_INET, &client_addr.sin_addr, cl_addr_str, INET_ADDRSTRLEN + 1);
-        // занулим адресную инфу клиента (она нам больше не нужна)
-        memset(&client_addr, 0, sizeof(struct sockaddr_in));
+            //buf[0] = 0;
+            //strcpy(buf, "Hello ");
+            //if (tmp == NULL)
+            //{
+            //    strcat(buf, "unknown\n");
+            //    byte_count = 14;
+            //}
+            //else
+            //{
+            //    byte_count = strlen(cl_addr_str);
+            //    cl_addr_str[byte_count] = '\n';
+            //    cl_addr_str[byte_count + 1] = 0;
+            //    strcat(buf, cl_addr_str);
+            //    byte_count += 7;
+            //}
 
-        buf[0] = 0;
-        strcpy(buf, "Hello ");
-        if (tmp == NULL)
-        {
-            strcat(buf, "unknown\n");
-            byte_count = 14;
+
+            //printf("Connected client address: %s", cl_addr_str);
+
+            bool flag_client = true;
+
+            while (flag_client) {
+                byte_count = recv(cl_s_id, buf, sizeof(buf) - 1, 0);
+                if (byte_count >= 0)
+                {
+                    //buf[byte_count] = 0;
+                    printf("Recieved message: %s\n", buf);
+                    strcat(buf, "!");
+                    printf("Send message: %s\n\n", buf);
+                    send(cl_s_id, buf, byte_count + 1, 0);
+                }
+                else
+                {
+                    printf("Error recv\n");
+                    flag_client = false;
+                }
+                //strcat(buf, "!");
+                //send(cl_s_id, buf, byte_count, 0);
+            }
+                shutdown(cl_s_id, 2);
+            #ifdef _WIN32
+                closesocket(cl_s_id);
+            #else
+                close(cl_s_id);
+            #endif
         }
-        else
-        {
-            byte_count = strlen(cl_addr_str);
-            cl_addr_str[byte_count] = '\n';
-            cl_addr_str[byte_count + 1] = 0;
-            strcat(buf, cl_addr_str);
-            byte_count += 7;
-        }
-        printf("Connected client address: %s", cl_addr_str);
-
-        send(cl_s_id, buf, byte_count, 0);
-
-        buf[0] = 0;
-        byte_count = recv(cl_s_id, buf, sizeof(buf) - 1, 0);
-        if (byte_count >= 0)
-        {
-            buf[byte_count] = 0;
-            printf("Msg: %s\n", buf);
-            send(cl_s_id, buf, byte_count, 0);
-        }
-        else
-        {
-            printf("Error recv\n");
-        }
-
-        shutdown(cl_s_id, 2);
-#ifdef _WIN32
-        closesocket(cl_s_id);
-#else
-        close(cl_s_id);
-#endif
         /*                                      */
         /* ************************************ */
     }
@@ -200,6 +206,6 @@ int main(int argc, char** argv)
     close(s_id);
 #endif
     printf("Socket closed\n");
-
+    system("pause");
     return 0;
 }

@@ -12,6 +12,8 @@
 #endif
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 
 int main(int argc, char** argv)
@@ -75,35 +77,47 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    printf("Connected to the server\n");
-    byte_count = recv(s_id, buf, sizeof(buf) - 1, 0);
-    if (byte_count >= 0)
-    {
-        buf[byte_count] = 0;
-        printf("Server said: %s\n", buf);
-    }
-    else
-    {
-        printf("Error recv\n");
-    }
-
     buf[0] = 0;
-    printf("We say Tratata\n");
-    strcpy(buf, "Tratata");
-    byte_count = send(s_id, buf, strlen(buf), 0);
-    if (byte_count < 0)
+    printf("!\n");
+    strcat(buf, "!");
+    bool flag_server = true;
+
+    while (flag_server)
     {
-        // TODO обработать ошибку
-    }
-    byte_count = recv(s_id, buf, sizeof(buf) - 1, 0);
-    if (byte_count >= 0)
-    {
-        buf[byte_count] = 0;
-        printf("Server answered: %s\n", buf);
-    }
-    else
-    {
-        printf("Error recv\n");
+        //printf("Connected to the server\n");
+        byte_count = send(s_id, buf, strlen(buf) + 1, 0);
+        if (byte_count < 0)
+        {
+            printf("Error send\n");
+            flag_server = false;
+            continue;
+        }
+
+        byte_count = recv(s_id, buf, sizeof(buf) - 1, 0);
+        if (byte_count >= 0)
+        {
+            buf[byte_count] = 0;
+            printf("Server said: %s\n", buf);
+        }
+        else
+        {
+            printf("Error recv\n");
+            flag_server = false;
+        }
+
+
+        //byte_count = recv(s_id, buf, sizeof(buf) - 1, 0);
+        //if (byte_count >= 0)
+        //{
+        //    buf[byte_count] = 0;
+        //    printf("Server answered: %s\n", buf);
+        //}
+        //else
+        //{
+        //    printf("Error recv\n");
+        //}
+        /*                                      */
+        /* ************************************ */
     }
 
     shutdown(s_id, 2);
@@ -118,6 +132,6 @@ int main(int argc, char** argv)
 #endif
 
     printf("Socket closed\n");
-
+    system("pause");
     return 0;
 }
