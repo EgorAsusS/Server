@@ -148,7 +148,7 @@ int main(int argc, char** argv)
             bool flag_client = true;
             while (flag_client) {
                 byte_count = recv(cl_s_id, buf, sizeof(buf) - 1, 0);
-                if (byte_count >= 0)
+                if (byte_count >= 0 && byte_count < 65535)
                 {
                     //buf[byte_count] = 0;
                     printf("Recieved message: %s\n", buf);
@@ -159,6 +159,7 @@ int main(int argc, char** argv)
                 else
                 {
                     printf("Error recv\n");
+                    send(cl_s_id, buf, byte_count, 0); // Чтобы закрыть сокет (в данном случае сокет ничего не дбавляет к buf)
                     flag_client = false;
                 }
             }

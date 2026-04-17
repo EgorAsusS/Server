@@ -113,7 +113,7 @@ int main(int argc, char** argv)
         }
 
         byte_count = recv(s_id, buf, sizeof(buf) - 1, 0);
-        if (byte_count >= 0)
+        if (byte_count >= 0 && byte_count < 65535)
         {
             buf[byte_count] = 0;
             printf("Recieved message: %s\n\n", buf);
