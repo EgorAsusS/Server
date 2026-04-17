@@ -14,27 +14,28 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
-#include <fcntl.h>
-
-/** Returns true on success, or false if there was an error */
-bool SetSocketBlockingEnabled(int fd, bool blocking)
-{
-    if (fd < 0) return false;
-
-#ifdef _WIN32
-    unsigned long mode = blocking ? 0 : 1;
-    return (ioctlsocket(fd, FIONBIO, &mode) == 0);
-#else
-    int flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1) return false;
-    flags = blocking ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
-    return (fcntl(fd, F_SETFL, flags) == 0);
-#endif
-}
-
+#include <stdlib.h>
 
 int main(int argc, char** argv)
 {
+    FILE* fcfg = NULL;
+    if (argc > 1) {
+        fcfg = fopen(argv[1], "r");
+    }
+    char IP[16] = { 0 };
+    int PORT = 0;
+    if (fcfg) {
+        int count = fscanf(fcfg, "IP: %15s Port: %d\n", IP, &PORT);
+        if (!count || PORT <= 0 || PORT > 65535) {
+            printf("Error occured while reading cfg file\n");
+            return 1;
+        }
+    }
+    else {
+        printf("Error occured while opening cfg file\n");
+        return 1;
+    }
+    
     struct sockaddr_in addr;               // тут будет хранится наш адрес
     int s_id = -1;                         // идентификатор сокета
     struct sockaddr_in client_addr;        // тут будет храниться адрес клиента
@@ -46,7 +47,7 @@ int main(int argc, char** argv)
 #else
     unsigned int cl_addr_len = 0;
 #endif
-    unsigned short port = 3030; // порт
+    unsigned short port = PORT; // порт
     char buf[65536];            // зададим буфер на максимально возможное сообщение в tcp + 1 байт
     int byte_count = 0;         // кол-во полученных байтов
     char* tmp;                  // указател на строку, в которой будет храниться адрес клиента
@@ -69,7 +70,7 @@ int main(int argc, char** argv)
     //  и адрес, на котором будем ожидать соединения (INADDR_ANY означает все доступные адреса машины)
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = INADDR_ANY;
+    inet_pton(AF_INET, IP, &(addr.sin_addr.s_addr));
 
     // запрашиваем у системы ресурсы под сокет
     s_id = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -144,27 +145,7 @@ int main(int argc, char** argv)
             // занулим адресную инфу клиента (она нам больше не нужна)
             memset(&client_addr, 0, sizeof(struct sockaddr_in));
 
-            //buf[0] = 0;
-            //strcpy(buf, "Hello ");
-            //if (tmp == NULL)
-            //{
-            //    strcat(buf, "unknown\n");
-            //    byte_count = 14;
-            //}
-            //else
-            //{
-            //    byte_count = strlen(cl_addr_str);
-            //    cl_addr_str[byte_count] = '\n';
-            //    cl_addr_str[byte_count + 1] = 0;
-            //    strcat(buf, cl_addr_str);
-            //    byte_count += 7;
-            //}
-
-
-            //printf("Connected client address: %s", cl_addr_str);
-
             bool flag_client = true;
-
             while (flag_client) {
                 byte_count = recv(cl_s_id, buf, sizeof(buf) - 1, 0);
                 if (byte_count >= 0)
@@ -180,8 +161,6 @@ int main(int argc, char** argv)
                     printf("Error recv\n");
                     flag_client = false;
                 }
-                //strcat(buf, "!");
-                //send(cl_s_id, buf, byte_count, 0);
             }
                 shutdown(cl_s_id, 2);
             #ifdef _WIN32
@@ -206,6 +185,5 @@ int main(int argc, char** argv)
     close(s_id);
 #endif
     printf("Socket closed\n");
-    system("pause");
     return 0;
 }
