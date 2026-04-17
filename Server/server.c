@@ -13,6 +13,25 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
+#include <fcntl.h>
+
+/** Returns true on success, or false if there was an error */
+bool SetSocketBlockingEnabled(int fd, bool blocking)
+{
+    if (fd < 0) return false;
+
+#ifdef _WIN32
+    unsigned long mode = blocking ? 0 : 1;
+    return (ioctlsocket(fd, FIONBIO, &mode) == 0);
+#else
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags == -1) return false;
+    flags = blocking ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
+    return (fcntl(fd, F_SETFL, flags) == 0);
+#endif
+}
+
 
 int main(int argc, char** argv)
 {
@@ -114,55 +133,63 @@ int main(int argc, char** argv)
         {
             // TODO обработать ошибку
         }
+        else {
+            /* ************************************ */
+            //   работаем с клиентом
+            // cl_s_id -- идентификатор сокета для работы с конкретным клиентом
 
-        /* ************************************ */
-        //   работаем с клиентом
-        // cl_s_id -- идентификатор сокета для работы с конкретным клиентом
+            // преобразуем адрес клиента в строковое представление
+            cl_addr_str[0] = 0;
+            tmp = (char*)inet_ntop(AF_INET, &client_addr.sin_addr, cl_addr_str, INET_ADDRSTRLEN + 1);
+            // занулим адресную инфу клиента (она нам больше не нужна)
+            memset(&client_addr, 0, sizeof(struct sockaddr_in));
 
-        // преобразуем адрес клиента в строковое представление
-        cl_addr_str[0] = 0;
-        tmp = (char*)inet_ntop(AF_INET, &client_addr.sin_addr, cl_addr_str, INET_ADDRSTRLEN + 1);
-        // занулим адресную инфу клиента (она нам больше не нужна)
-        memset(&client_addr, 0, sizeof(struct sockaddr_in));
+            //buf[0] = 0;
+            //strcpy(buf, "Hello ");
+            //if (tmp == NULL)
+            //{
+            //    strcat(buf, "unknown\n");
+            //    byte_count = 14;
+            //}
+            //else
+            //{
+            //    byte_count = strlen(cl_addr_str);
+            //    cl_addr_str[byte_count] = '\n';
+            //    cl_addr_str[byte_count + 1] = 0;
+            //    strcat(buf, cl_addr_str);
+            //    byte_count += 7;
+            //}
 
-        buf[0] = 0;
-        strcpy(buf, "Hello ");
-        if (tmp == NULL)
-        {
-            strcat(buf, "unknown\n");
-            byte_count = 14;
+
+            //printf("Connected client address: %s", cl_addr_str);
+
+            bool flag_client = true;
+
+            while (flag_client) {
+                byte_count = recv(cl_s_id, buf, sizeof(buf) - 1, 0);
+                if (byte_count >= 0)
+                {
+                    //buf[byte_count] = 0;
+                    printf("Recieved message: %s\n", buf);
+                    strcat(buf, "!");
+                    printf("Send message: %s\n\n", buf);
+                    send(cl_s_id, buf, byte_count + 1, 0);
+                }
+                else
+                {
+                    printf("Error recv\n");
+                    flag_client = false;
+                }
+                //strcat(buf, "!");
+                //send(cl_s_id, buf, byte_count, 0);
+            }
+                shutdown(cl_s_id, 2);
+            #ifdef _WIN32
+                closesocket(cl_s_id);
+            #else
+                close(cl_s_id);
+            #endif
         }
-        else
-        {
-            byte_count = strlen(cl_addr_str);
-            cl_addr_str[byte_count] = '\n';
-            cl_addr_str[byte_count + 1] = 0;
-            strcat(buf, cl_addr_str);
-            byte_count += 7;
-        }
-        printf("Connected client address: %s", cl_addr_str);
-
-        send(cl_s_id, buf, byte_count, 0);
-
-        buf[0] = 0;
-        byte_count = recv(cl_s_id, buf, sizeof(buf) - 1, 0);
-        if (byte_count >= 0)
-        {
-            buf[byte_count] = 0;
-            printf("Msg: %s\n", buf);
-            send(cl_s_id, buf, byte_count, 0);
-        }
-        else
-        {
-            printf("Error recv\n");
-        }
-
-        shutdown(cl_s_id, 2);
-#ifdef _WIN32
-        closesocket(cl_s_id);
-#else
-        close(cl_s_id);
-#endif
         /*                                      */
         /* ************************************ */
     }
@@ -179,6 +206,6 @@ int main(int argc, char** argv)
     close(s_id);
 #endif
     printf("Socket closed\n");
-
+    system("pause");
     return 0;
 }
