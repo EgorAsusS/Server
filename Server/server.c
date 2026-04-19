@@ -19,14 +19,14 @@
 int main(int argc, char** argv)
 {
     FILE* fcfg = NULL;
+    char server_addr[16] = { 0 };
+    unsigned short port = 0;// порт
     if (argc > 1) {
-        fcfg = fopen(argv[1], "r");
+        fcfg = fopen(argv[1], "r"); // Открытие файла в режиме read
     }
-    char IP[16] = { 0 };
-    int PORT = 0;
     if (fcfg) {
-        int count = fscanf(fcfg, "IP: %15s Port: %d\n", IP, &PORT);
-        if (!count || PORT <= 0 || PORT > 65535) {
+        int count = fscanf(fcfg, "IP: %15s Port: %hu\n", server_addr, &port); // Форматированное считывание данных из файла %hu - unsigned short
+        if (count < 2 || port <= 0 || port > 65535) {
             printf("Error occured while reading cfg file\n");
             return 1;
         }
@@ -47,7 +47,6 @@ int main(int argc, char** argv)
 #else
     unsigned int cl_addr_len = 0;
 #endif
-    unsigned short port = PORT; // порт
     char buf[65536];            // зададим буфер на максимально возможное сообщение в tcp + 1 байт
     int byte_count = 0;         // кол-во полученных байтов
     char* tmp;                  // указател на строку, в которой будет храниться адрес клиента
@@ -70,7 +69,7 @@ int main(int argc, char** argv)
     //  и адрес, на котором будем ожидать соединения (INADDR_ANY означает все доступные адреса машины)
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port);
-    inet_pton(AF_INET, IP, &(addr.sin_addr.s_addr));
+    inet_pton(AF_INET, server_addr, &(addr.sin_addr.s_addr));
 
     // запрашиваем у системы ресурсы под сокет
     s_id = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -130,9 +129,10 @@ int main(int argc, char** argv)
         cl_addr_len = sizeof(struct sockaddr_in);
         cl_s_id = accept(s_id, (struct sockaddr*)&client_addr, &cl_addr_len);
 
-        if (cl_s_id < 0)
+        if (cl_s_id == INVALID_SOCKET)
         {
             // TODO обработать ошибку
+            printf("Error connetion with client");
         }
         else {
             /* ************************************ */
@@ -148,18 +148,29 @@ int main(int argc, char** argv)
             bool flag_client = true;
             while (flag_client) {
                 byte_count = recv(cl_s_id, buf, sizeof(buf) - 1, 0);
-                if (byte_count >= 0 && byte_count < 65535)
+                if (byte_count >= 0)
                 {
-                    //buf[byte_count] = 0;
+                    buf[byte_count] = 0;
                     printf("Recieved message: %s\n", buf);
-                    strcat(buf, "!");
+                    if (byte_count == 65535) {
+                        printf("Error end of buffer\n");
+                    }
+                    else {
+                        strcat(buf, "!");
+                        byte_count++;
+                    }
+                    byte_count = send(cl_s_id, buf, byte_count, 0);
+                    if (byte_count < 0)
+                    {
+                        printf("Error send\n");
+                        flag_client = false;
+                        continue;
+                    }
                     printf("Send message: %s\n\n", buf);
-                    send(cl_s_id, buf, byte_count + 1, 0);
                 }
                 else
                 {
                     printf("Error recv\n");
-                    send(cl_s_id, buf, byte_count, 0); // Чтобы закрыть сокет (в данном случае сокет ничего не дбавляет к buf)
                     flag_client = false;
                 }
             }
