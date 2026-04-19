@@ -18,20 +18,21 @@
 
 int main(int argc, char** argv)
 {
-    char server_addr[200] = { 0 };
-    unsigned short port = 0;// порт сервера
-    if (argc > 2) {
-        for (int j = 0; j < strlen(argv[1]) && j < 200; j++) {
-            server_addr[j] = argv[1][j];
-        }
-        port = (unsigned short)strtol(argv[2], NULL, 0); // Конвертация str to long
-        if (!server_addr[0] || port <= 0 || port > 65535) {
+    FILE* fcfg = NULL;
+    char server_addr[16] = { 0 };
+    unsigned short port = 0;// порт
+    if (argc > 1) {
+        fcfg = fopen(argv[1], "r"); // Открытие файла в режиме read
+    }
+    if (fcfg) {
+        int count = fscanf(fcfg, "IP: %15s Port: %hu\n", server_addr, &port); // Форматированное считывание данных из файла %hu - unsigned short
+        if (count < 2 || port <= 0 || port > 65535) {
             printf("Error occured while reading cfg file\n");
             return 1;
         }
     }
     else {
-        printf("Error arguments was recieved with file\n");
+        printf("Error occured while opening cfg file\n");
         return 1;
     }
     
